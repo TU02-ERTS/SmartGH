@@ -18,6 +18,7 @@ install () {
 
     mkdir -p /var/opt/serialmon
     cp -R $OWN_PATH/default-thresholds /var/opt/serialmon/thresholds
+    chmod -R 777 /var/opt/serialmon/thresholds
 
     service cameramon start
     service serialmon start

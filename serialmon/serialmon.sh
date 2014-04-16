@@ -2,6 +2,7 @@
 
 DELAY=1.8
 MAX_HISTORY=3600
+MAX_EVENTS=1024
 
 GPIO=/usr/local/bin/gpio
 
@@ -10,11 +11,16 @@ SERIALMON_OUT_PATH="/var/log/serialmon"
 
 THRESHOLDS_PATH="/var/opt/serialmon/thresholds"
 
+log_and_trim () {
+    echo -e `date +"%s"` "\t$1" >> "$SERIALMON_OUT_PATH/$2"
+    echo -e `date +"%s"` "\t$1"
+    tail -n $3 "$SERIALMON_OUT_PATH/$2" > "$SERIALMON_OUT_PATH/temp.dat"
+    mv "$SERIALMON_OUT_PATH/temp.dat" "$SERIALMON_OUT_PATH/$2"
+}
+
 while :; do
     readings=`awk -f "$SERIALMON_PATH/read_serial_ama0.awk" /dev/ttyAMA0`
-    echo -e `date +"%s"` "\t$readings" >> "$SERIALMON_OUT_PATH/serialmon.dat"
-    tail -n $MAX_HISTORY "$SERIALMON_OUT_PATH/serialmon.dat" > "$SERIALMON_OUT_PATH/temp.dat"
-    mv "$SERIALMON_OUT_PATH/temp.dat" "$SERIALMON_OUT_PATH/serialmon.dat"
+    log_and_trim "$readings" "serialmon.dat" $MAX_HISTORY
 
     T0=`echo -e "$readings" | cut -f 1`
     L0=`echo -e "$readings" | cut -f 2`
@@ -31,22 +37,46 @@ while :; do
     let "avgL=($L0+$L1)/2"
     let "avgRH=($RH0+$RH1)/2"
 
-    if [ "$avgT" -gt "$threshT" ]; then
-        $GPIO write 3 1
+     if [ "$avgL" -lt "$threshL" ]; then
+        if [ `$GPIO read 4` -eq 0 ]; then
+            log_and_trim "1\tLight Intensity" "events.dat" $MAX_EVENTS
+            $GPIO write 4 1
+        fi
     else
-        $GPIO write 3 0
+        if [ `$GPIO read 4` -eq 1 ]; then
+            log_and_trim "0\tLight Intensity" "events.dat" $MAX_EVENTS
+            $GPIO write 4 0
+        fi
     fi
 
-    if [ "$avgL" -lt "$threshL" ]; then
-        $GPIO write 4 1
+    if [ "$avgT" -gt "$threshT" ]; then
+        if [ `$GPIO read 3` -eq 0 ]; then
+            log_and_trim "1\tTemperature" "events.dat" $MAX_EVENTS
+            $GPIO write 3 1
+        fi
     else
-        $GPIO write 4 0
+        if [ `$GPIO read 3` -eq 1 ]; then
+            log_and_trim "0\tTemperature" "events.dat" $MAX_EVENTS
+            $GPIO write 3 0
+        fi
     fi
 
     if [ "$avgRH" -lt "$threshRH" ]; then
-        $GPIO write 3 1
+        if [ `$GPIO read 2` -eq 0 ]; then
+            log_and_trim "1\tHumidity" "events.dat" $MAX_EVENTS
+            $GPIO write 2 1
+        fi
     else
-        $GPIO write 3 0
+        if [ `$GPIO read 2` -eq 1 ]; then
+            log_and_trim "0\tHumidity" "events.dat" $MAX_EVENTS
+            $GPIO write 2 0
+        fi
+    fi
+
+    if [ `$GPIO read 2` -eq 1 ] || [ `$GPIO read 3` -eq 1 ]; then
+        $GPIO write 1 1
+    else
+        $GPIO write 1 0
     fi
 
     sleep $DELAY
