@@ -12,7 +12,7 @@ function on_exit {
 trap on_exit EXIT
 
 while :; do
-    nice -5 fswebcam --resolution 480x360 --skip 1 --loop 1 --quiet \
+    nice -5 fswebcam --resolution 640x480 --skip 1 --loop 1 --quiet \
                      --banner-colour "#FF000000" --line-colour "#FF000000" \
                      --top-banner --font DroidSans-Bold:13 --no-shadow \
                      --title "CAM 0" --timestamp "%a %d-%m %H:%M:%S" \
